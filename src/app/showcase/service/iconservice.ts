@@ -1,22 +1,30 @@
-import { Injectable } from '@angular/core';
-import { HttpClient,HttpHeaders } from '@angular/common/http';
-import {map} from 'rxjs/operators';
+import { Injectable, Inject } from '@angular/core';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { map } from 'rxjs/operators';
+import { DOCUMENT } from '@angular/common';
 
 @Injectable()
 export class IconService {
+    constructor(private http: HttpClient, @Inject(DOCUMENT) private document: Document) {}
 
-	constructor(private http:HttpClient) { }
+    icons: any[];
 
-    icons:any[];
-    
-	selectedIcon:any;
-    
-    apiUrl = "assets/showcase/data/icons.json";
+    selectedIcon: any;
 
-	getIcons() {
-		return this.http.get(this.apiUrl).pipe(map((response:any)=>{
-            this.icons = response.icons;
-            return this.icons;
-		}));
-	}
+    apiUrl = 'assets/showcase/data/icons.json';
+
+    getBaseUrl() {
+        return `${this.document.location.protocol}//${this.document.location.host}/`;
+    }
+
+    getIcons() {
+        const apiUrl = this.getBaseUrl() + this.apiUrl;
+
+        return this.http.get(apiUrl).pipe(
+            map((response: any) => {
+                this.icons = response.icons;
+                return this.icons;
+            })
+        );
+    }
 }

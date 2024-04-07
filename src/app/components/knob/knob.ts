@@ -1,65 +1,151 @@
-import { NgModule, Component, ChangeDetectionStrategy, ViewEncapsulation, Input, forwardRef, ChangeDetectorRef, ElementRef, Output, EventEmitter} from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, DOCUMENT } from '@angular/common';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Inject, Input, NgModule, Output, Renderer2, ViewEncapsulation, booleanAttribute, forwardRef, numberAttribute } from '@angular/core';
 import { NG_VALUE_ACCESSOR } from '@angular/forms';
+import { VoidListener } from 'primeng/ts-helpers';
 
 export const KNOB_VALUE_ACCESSOR: any = {
     provide: NG_VALUE_ACCESSOR,
     useExisting: forwardRef(() => Knob),
     multi: true
 };
-
+/**
+ * Knob is a form component to define number inputs with a dial.
+ * @group Components
+ */
 @Component({
     selector: 'p-knob',
     template: `
-        <div [ngClass]="containerClass()" [class]="styleClass" [ngStyle]="style">
-        <svg viewBox="0 0 100 100" [style.width]="size + 'px'" [style.height]="size + 'px'" (click)="onClick($event)" (mousedown)="onMouseDown($event)" (mouseup)="onMouseUp($event)"
-            (touchstart)="onTouchStart($event)" (touchend)="onTouchEnd($event)">
-            <path [attr.d]="rangePath()" [attr.stroke-width]="strokeWidth" [attr.stroke]="rangeColor" class="p-knob-range"></path>
-            <path [attr.d]="valuePath()" [attr.stroke-width]="strokeWidth" [attr.stroke]="valueColor" class="p-knob-value"></path>
-            <text *ngIf="showValue" [attr.x]="50" [attr.y]="57" text-anchor="middle" [attr.fill]="textColor" class="p-knob-text" [attr.name]="name">{{valueToDisplay()}}</text>
-        </svg>
+        <div [ngClass]="containerClass()" [class]="styleClass" [ngStyle]="style" [attr.data-pc-name]="'knob'" [attr.data-pc-section]="'root'">
+            <svg
+                viewBox="0 0 100 100"
+                role="slider"
+                [style.width]="size + 'px'"
+                [style.height]="size + 'px'"
+                (click)="onClick($event)"
+                (keydown)="onKeyDown($event)"
+                (mousedown)="onMouseDown($event)"
+                (mouseup)="onMouseUp($event)"
+                (touchstart)="onTouchStart($event)"
+                (touchend)="onTouchEnd($event)"
+                [attr.aria-valuemin]="min"
+                [attr.aria-valuemax]="max"
+                [attr.aria-valuenow]="_value"
+                [attr.aria-labelledby]="ariaLabelledBy"
+                [attr.aria-label]="ariaLabel"
+                [attr.tabindex]="readonly || disabled ? -1 : tabindex"
+                [attr.data-pc-section]="'svg'"
+            >
+                <path [attr.d]="rangePath()" [attr.stroke-width]="strokeWidth" [attr.stroke]="rangeColor" class="p-knob-range"></path>
+                <path [attr.d]="valuePath()" [attr.stroke-width]="strokeWidth" [attr.stroke]="valueColor" class="p-knob-value"></path>
+                <text *ngIf="showValue" [attr.x]="50" [attr.y]="57" text-anchor="middle" [attr.fill]="textColor" class="p-knob-text" [attr.name]="name">{{ valueToDisplay() }}</text>
+            </svg>
         </div>
     `,
     providers: [KNOB_VALUE_ACCESSOR],
     changeDetection: ChangeDetectionStrategy.OnPush,
     encapsulation: ViewEncapsulation.None,
-    styleUrls: ['./knob.css']
+    styleUrls: ['./knob.css'],
+    host: {
+        class: 'p-element'
+    }
 })
 export class Knob {
-
-    @Input() styleClass: string;
-
-    @Input() style: any;
-
-    @Input() severity: string;
-
-    @Input() valueColor: string = "var(--primary-color, Black)";
-
-    @Input() rangeColor: string = "var(--surface-d, LightGray)";
-
-    @Input() textColor: string = "var(--text-color-secondary, Black)";
-
-    @Input() valueTemplate: string = "{value}";
-
-    @Input() name: string;
-
-    @Input() size: number = 100;
-
-    @Input() step: number = 1;
-
-    @Input() min: number = 0;
-
-    @Input() max: number = 100;
-
-    @Input() strokeWidth: number = 14;
-
-    @Input() disabled: boolean;
-
-    @Input() showValue: boolean = true;
-
-    @Input() readonly: boolean = false;
-
-    @Output() onChange: EventEmitter<any> = new EventEmitter();
+    /**
+     * Style class of the component.
+     * @group Props
+     */
+    @Input() styleClass: string | undefined;
+    /**
+     * Inline style of the component.
+     * @group Props
+     */
+    @Input() style: { [klass: string]: any } | null | undefined;
+    /**
+     * Defines a string that labels the input for accessibility.
+     * @group Props
+     */
+    @Input() ariaLabel: string | undefined;
+    /**
+     * Specifies one or more IDs in the DOM that labels the input field.
+     * @group Props
+     */
+    @Input() ariaLabelledBy: string | undefined;
+    /**
+     * Index of the element in tabbing order.
+     * @group Props
+     */
+    @Input({ transform: numberAttribute }) tabindex: number = 0;
+    /**
+     * Background of the value.
+     * @group Props
+     */
+    @Input() valueColor: string = 'var(--primary-color, Black)';
+    /**
+     * Background color of the range.
+     * @group Props
+     */
+    @Input() rangeColor: string = 'var(--surface-border, LightGray)';
+    /**
+     * Color of the value text.
+     * @group Props
+     */
+    @Input() textColor: string = 'var(--text-color-secondary, Black)';
+    /**
+     * Template string of the value.
+     * @group Props
+     */
+    @Input() valueTemplate: string = '{value}';
+    /**
+     * Name of the input element.
+     * @group Props
+     */
+    @Input() name: string | undefined;
+    /**
+     * Size of the component in pixels.
+     * @group Props
+     */
+    @Input({ transform: numberAttribute }) size: number = 100;
+    /**
+     * Step factor to increment/decrement the value.
+     * @group Props
+     */
+    @Input({ transform: numberAttribute }) step: number = 1;
+    /**
+     * Mininum boundary value.
+     * @group Props
+     */
+    @Input({ transform: numberAttribute }) min: number = 0;
+    /**
+     * Maximum boundary value.
+     * @group Props
+     */
+    @Input({ transform: numberAttribute }) max: number = 100;
+    /**
+     * Width of the knob stroke.
+     * @group Props
+     */
+    @Input({ transform: numberAttribute }) strokeWidth: number = 14;
+    /**
+     * When present, it specifies that the component should be disabled.
+     * @group Props
+     */
+    @Input({ transform: booleanAttribute }) disabled: boolean | undefined;
+    /**
+     * Whether the show the value inside the knob.
+     * @group Props
+     */
+    @Input({ transform: booleanAttribute }) showValue: boolean = true;
+    /**
+     * When present, it specifies that the component value cannot be edited.
+     * @group Props
+     */
+    @Input({ transform: booleanAttribute }) readonly: boolean = false;
+    /**
+     * Callback to invoke on value change.
+     * @param {number} value - New value.
+     * @group Emits
+     */
+    @Output() onChange: EventEmitter<number> = new EventEmitter<number>();
 
     radius: number = 40;
 
@@ -67,52 +153,49 @@ export class Knob {
 
     midY: number = 50;
 
-    minRadians: number = 4 * Math.PI / 3;
+    minRadians: number = (4 * Math.PI) / 3;
 
     maxRadians: number = -Math.PI / 3;
-    
-    value: number = null;
 
-    windowMouseMoveListener: any;
+    value: number = 0;
 
-    windowMouseUpListener: any;
+    windowMouseMoveListener: VoidListener;
 
-    windowTouchMoveListener: any;
+    windowMouseUpListener: VoidListener;
 
-    windowTouchEndListener: any;
+    windowTouchMoveListener: VoidListener;
+
+    windowTouchEndListener: VoidListener;
 
     onModelChange: Function = () => {};
 
     onModelTouched: Function = () => {};
 
-    constructor(private cd: ChangeDetectorRef, private el: ElementRef) { }
+    constructor(@Inject(DOCUMENT) private document: Document, private renderer: Renderer2, private cd: ChangeDetectorRef, private el: ElementRef) {}
 
-    mapRange(x, inMin, inMax, outMin, outMax) {
-        return (x - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
+    mapRange(x: number, inMin: number, inMax: number, outMin: number, outMax: number) {
+        return ((x - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin;
     }
 
-    onClick(event) {
+    onClick(event: MouseEvent) {
         if (!this.disabled && !this.readonly) {
             this.updateValue(event.offsetX, event.offsetY);
         }
     }
 
-    updateValue(offsetX, offsetY) {
+    updateValue(offsetX: number, offsetY: number) {
         let dx = offsetX - this.size / 2;
-        let dy =  this.size / 2 - offsetY;
+        let dy = this.size / 2 - offsetY;
         let angle = Math.atan2(dy, dx);
         let start = -Math.PI / 2 - Math.PI / 6;
         this.updateModel(angle, start);
     }
 
-    updateModel(angle, start) {
+    updateModel(angle: number, start: number) {
         let mappedValue;
-        if (angle > this.maxRadians)
-            mappedValue = this.mapRange(angle, this.minRadians, this.maxRadians, this.min, this.max);
-        else if (angle < start)
-            mappedValue = this.mapRange(angle + 2 * Math.PI, this.minRadians, this.maxRadians, this.min, this.max);
-        else
-            return;
+        if (angle > this.maxRadians) mappedValue = this.mapRange(angle, this.minRadians, this.maxRadians, this.min, this.max);
+        else if (angle < start) mappedValue = this.mapRange(angle + 2 * Math.PI, this.minRadians, this.maxRadians, this.min, this.max);
+        else return;
 
         let newValue = Math.round((mappedValue - this.min) / this.step) * this.step + this.min;
         this.value = newValue;
@@ -120,64 +203,129 @@ export class Knob {
         this.onChange.emit(this.value);
     }
 
-    onMouseDown(event) {
+    onMouseDown(event: MouseEvent) {
         if (!this.disabled && !this.readonly) {
-            this.windowMouseMoveListener = this.onMouseMove.bind(this)
-            this.windowMouseUpListener = this.onMouseUp.bind(this)
-            window.addEventListener('mousemove', this.windowMouseMoveListener);
-            window.addEventListener('mouseup', this.windowMouseUpListener);
+            const window = this.document.defaultView || 'window';
+            this.windowMouseMoveListener = this.renderer.listen(window, 'mousemove', this.onMouseMove.bind(this));
+            this.windowMouseUpListener = this.renderer.listen(window, 'mouseup', this.onMouseUp.bind(this));
             event.preventDefault();
         }
     }
 
-    onMouseUp(event) {
+    onMouseUp(event: MouseEvent) {
         if (!this.disabled && !this.readonly) {
-            window.removeEventListener('mousemove', this.windowMouseMoveListener);
-            window.removeEventListener('mouseup', this.windowMouseUpListener);
-            this.windowMouseUpListener = null;
-            this.windowMouseMoveListener = null;
+            if (this.windowMouseMoveListener) {
+                this.windowMouseMoveListener();
+                this.windowMouseUpListener = null;
+            }
+
+            if (this.windowMouseUpListener) {
+                this.windowMouseUpListener();
+                this.windowMouseMoveListener = null;
+            }
             event.preventDefault();
         }
     }
 
-    onTouchStart(event) {
+    onTouchStart(event: TouchEvent) {
         if (!this.disabled && !this.readonly) {
-            this.windowTouchMoveListener = this.onTouchMove.bind(this);
-            this.windowTouchEndListener = this.onTouchEnd.bind(this);
-            window.addEventListener('touchmove', this.windowTouchMoveListener);
-            window.addEventListener('touchend', this.windowTouchEndListener);
+            const window = this.document.defaultView || 'window';
+            this.windowTouchMoveListener = this.renderer.listen(window, 'touchmove', this.onTouchMove.bind(this));
+            this.windowTouchEndListener = this.renderer.listen(window, 'touchend', this.onTouchEnd.bind(this));
             event.preventDefault();
         }
     }
 
-    onTouchEnd(event) {
+    onTouchEnd(event: TouchEvent) {
         if (!this.disabled && !this.readonly) {
-            window.removeEventListener('touchmove', this.windowTouchMoveListener);
-            window.removeEventListener('touchend', this.windowTouchEndListener);
+            if (this.windowTouchMoveListener) {
+                this.windowTouchMoveListener();
+            }
+            if (this.windowTouchEndListener) {
+                this.windowTouchEndListener();
+            }
             this.windowTouchMoveListener = null;
             this.windowTouchEndListener = null;
             event.preventDefault();
         }
     }
 
-    onMouseMove(event) {
+    onMouseMove(event: MouseEvent) {
         if (!this.disabled && !this.readonly) {
             this.updateValue(event.offsetX, event.offsetY);
             event.preventDefault();
         }
     }
 
-    onTouchMove(event) {
-        if (!this.disabled && !this.readonly && event.touches.length == 1) {
+    onTouchMove(event: Event) {
+        if (!this.disabled && !this.readonly && event instanceof TouchEvent && event.touches.length === 1) {
             const rect = this.el.nativeElement.children[0].getBoundingClientRect();
             const touch = event.targetTouches.item(0);
-            const offsetX = touch.clientX - rect.left;
-            const offsetY = touch.clientY - rect.top;
-            this.updateValue(offsetX, offsetY);
+            if (touch) {
+                const offsetX = touch.clientX - rect.left;
+                const offsetY = touch.clientY - rect.top;
+                this.updateValue(offsetX, offsetY);
+            }
         }
     }
 
-    writeValue(value: any) : void {
+    updateModelValue(newValue) {
+        if (newValue > this.max) this.value = this.max;
+        else if (newValue < this.min) this.value = this.min;
+        else this.value = newValue;
+
+        this.onModelChange(this.value);
+        this.onChange.emit(this.value);
+    }
+
+    onKeyDown(event: KeyboardEvent) {
+        if (!this.disabled && !this.readonly) {
+            switch (event.code) {
+                case 'ArrowRight':
+
+                case 'ArrowUp': {
+                    event.preventDefault();
+                    this.updateModelValue(this._value + 1);
+                    break;
+                }
+
+                case 'ArrowLeft':
+
+                case 'ArrowDown': {
+                    event.preventDefault();
+                    this.updateModelValue(this._value - 1);
+                    break;
+                }
+
+                case 'Home': {
+                    event.preventDefault();
+                    this.updateModelValue(this.min);
+
+                    break;
+                }
+
+                case 'End': {
+                    event.preventDefault();
+                    this.updateModelValue(this.max);
+                    break;
+                }
+
+                case 'PageUp': {
+                    event.preventDefault();
+                    this.updateModelValue(this._value + 10);
+                    break;
+                }
+
+                case 'PageDown': {
+                    event.preventDefault();
+                    this.updateModelValue(this._value - 10);
+                    break;
+                }
+            }
+        }
+    }
+
+    writeValue(value: any): void {
         this.value = value;
         this.cd.markForCheck();
     }
@@ -211,10 +359,8 @@ export class Knob {
     }
 
     zeroRadians() {
-        if (this.min > 0 && this.max > 0)
-            return this.mapRange(this.min, this.min, this.max, this.minRadians, this.maxRadians);
-        else
-            return this.mapRange(0, this.min, this.max, this.minRadians, this.maxRadians);
+        if (this.min > 0 && this.max > 0) return this.mapRange(this.min, this.min, this.max, this.minRadians, this.maxRadians);
+        else return this.mapRange(0, this.min, this.max, this.minRadians, this.maxRadians);
     }
 
     valueRadians() {
@@ -262,7 +408,7 @@ export class Knob {
     }
 
     valueToDisplay() {
-        return this.valueTemplate.replace("{value}", this._value.toString());
+        return this.valueTemplate.replace('{value}', this._value.toString());
     }
 
     get _value(): number {
@@ -275,4 +421,4 @@ export class Knob {
     exports: [Knob],
     declarations: [Knob]
 })
-export class KnobModule { }
+export class KnobModule {}

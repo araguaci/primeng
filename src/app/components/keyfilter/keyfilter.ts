@@ -1,17 +1,38 @@
-import { NgModule, Directive, ElementRef, HostListener, Input, forwardRef, Output, EventEmitter } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { NgModule, Directive, ElementRef, HostListener, Input, forwardRef, Output, EventEmitter, Inject, PLATFORM_ID, Provider, booleanAttribute } from '@angular/core';
+import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { DomHandler } from 'primeng/dom';
 import { Validator, AbstractControl, NG_VALIDATORS } from '@angular/forms';
+import { KeyFilterPattern } from './keyfilter.interface';
 
-export const KEYFILTER_VALIDATOR: any = {
+export const KEYFILTER_VALIDATOR: Provider = {
     provide: NG_VALIDATORS,
     useExisting: forwardRef(() => KeyFilter),
     multi: true
 };
 
-const DEFAULT_MASKS = {
+type SafariKeys = {
+    63234: number;
+    63235: number;
+    63232: number;
+    63233: number;
+    63276: number;
+    63277: number;
+    63272: number;
+    63273: number;
+    63275: number;
+};
+
+type Keys = {
+    TAB: number;
+    RETURN: number;
+    ESC: number;
+    BACKSPACE: number;
+    DELETE: number;
+};
+
+const DEFAULT_MASKS: Record<KeyFilterPattern, RegExp> = {
     pint: /[\d]/,
-    'int': /[\d\-]/,
+    int: /[\d\-]/,
     pnum: /[\d\.]/,
     money: /[\d\.\s,]/,
     num: /[\d\-\.]/,
@@ -21,7 +42,7 @@ const DEFAULT_MASKS = {
     alphanum: /[a-z0-9_]/i
 };
 
-const KEYS = {
+const KEYS: Keys = {
     TAB: 9,
     RETURN: 13,
     ESC: 27,
@@ -29,7 +50,7 @@ const KEYS = {
     DELETE: 46
 };
 
-const SAFARI_KEYS = {
+const SAFARI_KEYS: SafariKeys = {
     63234: 37, // left
     63235: 39, // right
     63232: 38, // up
@@ -38,58 +59,84 @@ const SAFARI_KEYS = {
     63277: 34, // page down
     63272: 46, // delete
     63273: 36, // home
-    63275: 35  // end
+    63275: 35 // end
 };
-
+/**
+ * KeyFilter Directive is a built-in feature of InputText to restrict user input based on a regular expression.
+ * @group Components
+ */
 @Directive({
     selector: '[pKeyFilter]',
-    providers: [KEYFILTER_VALIDATOR]
+    providers: [KEYFILTER_VALIDATOR],
+    host: {
+        class: 'p-element'
+    }
 })
 export class KeyFilter implements Validator {
+    /**
+     * When enabled, instead of blocking keys, input is validated internally to test against the regular expression.
+     * @group Props
+     */
+    @Input({ transform: booleanAttribute }) pValidateOnly: boolean | undefined;
+    /**
+     * Sets the pattern for key filtering.
+     * @group Props
+     */
 
-    @Input() pValidateOnly: boolean;
+    @Input('pKeyFilter') set pattern(_pattern: RegExp | KeyFilterPattern | null | undefined) {
+        this._pattern = _pattern;
 
-    @Output() ngModelChange: EventEmitter<any> = new EventEmitter();
+        if (_pattern instanceof RegExp) {
+            this.regex = _pattern;
+        } else if (_pattern in DEFAULT_MASKS) {
+            this.regex = DEFAULT_MASKS[_pattern];
+        } else {
+            this.regex = /./;
+        }
+    }
+    get pattern(): RegExp | KeyFilterPattern | null | undefined {
+        return this._pattern;
+    }
 
-    regex: RegExp;
+    /**
+     * Emits a value whenever the ngModel of the component changes.
+     * @param {(string | number)} modelValue - Custom model change event.
+     * @group Emits
+     */
+    @Output() ngModelChange: EventEmitter<string | number> = new EventEmitter<string | number>();
 
-    _pattern: any;
+    regex: RegExp = /./;
+
+    _pattern: RegExp | KeyFilterPattern | null | undefined;
 
     isAndroid: boolean;
 
     lastValue: any;
 
-    constructor(public el: ElementRef) {
-        this.isAndroid = DomHandler.isAndroid();
-    }
-
-    get pattern(): any {
-        return this._pattern;
-    }
-
-    @Input('pKeyFilter') set pattern(_pattern: any) {
-        this._pattern = _pattern;
-        this.regex = DEFAULT_MASKS[this._pattern] || this._pattern;
+    constructor(@Inject(DOCUMENT) private document: Document, @Inject(PLATFORM_ID) private platformId: any, public el: ElementRef) {
+        if (isPlatformBrowser(this.platformId)) {
+            this.isAndroid = DomHandler.isAndroid();
+        } else {
+            this.isAndroid = false;
+        }
     }
 
     isNavKeyPress(e: KeyboardEvent) {
         let k = e.keyCode;
-        k = DomHandler.getBrowser().safari ? (SAFARI_KEYS[k] || k) : k;
+        k = DomHandler.getBrowser().safari ? (SAFARI_KEYS as any)[k] || k : k;
 
         return (k >= 33 && k <= 40) || k == KEYS.RETURN || k == KEYS.TAB || k == KEYS.ESC;
-    };
+    }
 
     isSpecialKey(e: KeyboardEvent) {
         let k = e.keyCode || e.charCode;
 
-        return k == 9 || k == 13 || k == 27 || k == 16 || k == 17 ||(k >= 18 && k <= 20) ||
-            (DomHandler.getBrowser().opera && !e.shiftKey && (k == 8 || (k >= 33 && k <= 35) || (k >= 36 && k <= 39) || (k >= 44 && k <= 45)));
+        return k == 9 || k == 13 || k == 27 || k == 16 || k == 17 || (k >= 18 && k <= 20) || (DomHandler.getBrowser().opera && !e.shiftKey && (k == 8 || (k >= 33 && k <= 35) || (k >= 36 && k <= 39) || (k >= 44 && k <= 45)));
     }
-
 
     getKey(e: KeyboardEvent) {
         let k = e.keyCode || e.charCode;
-        return DomHandler.getBrowser().safari ? (SAFARI_KEYS[k] || k) : k;
+        return DomHandler.getBrowser().safari ? (SAFARI_KEYS as any)[k] || k : k;
     }
 
     getCharCode(e: KeyboardEvent) {
@@ -102,15 +149,14 @@ export class KeyFilter implements Validator {
         for (let i = 0; i < value.length; i++) {
             let str = value.substr(0, i) + value.substr(i + value.length - prevValue.length);
 
-            if (str === prevValue)
-                delta = value.substr(i, value.length - prevValue.length);
+            if (str === prevValue) delta = value.substr(i, value.length - prevValue.length);
         }
 
         return delta;
     }
 
     isValidChar(c: string) {
-        return this.regex.test(c);
+        return (<RegExp>this.regex).test(c);
     }
 
     isValidString(str: string) {
@@ -138,8 +184,7 @@ export class KeyFilter implements Validator {
                     this.el.nativeElement.value = lastVal;
                     this.ngModelChange.emit(lastVal);
                 }
-            }
-            else if (!removed) {
+            } else if (!removed) {
                 if (!this.isValidChar(inserted)) {
                     this.el.nativeElement.value = lastVal;
                     this.ngModelChange.emit(lastVal);
@@ -164,8 +209,12 @@ export class KeyFilter implements Validator {
 
         if (browser.mozilla && (e.ctrlKey || e.altKey)) {
             return;
+        } else if (k == 17 || k == 18) {
+            return;
         }
-        else if (k == 17 || k == 18) {
+
+        // Enter key
+        if (k == 13) {
             return;
         }
 
@@ -177,7 +226,7 @@ export class KeyFilter implements Validator {
             return;
         }
 
-        ok = this.regex.test(cc);
+        ok = (<RegExp>this.regex).test(cc);
 
         if (!ok) {
             e.preventDefault();
@@ -185,8 +234,8 @@ export class KeyFilter implements Validator {
     }
 
     @HostListener('paste', ['$event'])
-    onPaste(e) {
-        const clipboardData = e.clipboardData || (<any>window).clipboardData.getData('text');
+    onPaste(e: ClipboardEvent) {
+        const clipboardData = e.clipboardData || (<any>this.document.defaultView).clipboardData.getData('text');
         if (clipboardData) {
             const pastedText = clipboardData.getData('text');
             for (let char of pastedText.toString()) {
@@ -198,17 +247,16 @@ export class KeyFilter implements Validator {
         }
     }
 
-    validate(c: AbstractControl): { [key: string]: any } {
+    validate(c: AbstractControl): { [key: string]: any } | any {
         if (this.pValidateOnly) {
             let value = this.el.nativeElement.value;
             if (value && !this.regex.test(value)) {
                 return {
                     validatePattern: false
-                }
+                };
             }
         }
     }
-
 }
 
 @NgModule({
@@ -216,4 +264,4 @@ export class KeyFilter implements Validator {
     exports: [KeyFilter],
     declarations: [KeyFilter]
 })
-export class KeyFilterModule { }
+export class KeyFilterModule {}

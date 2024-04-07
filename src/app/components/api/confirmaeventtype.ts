@@ -1,5 +1,8 @@
+/**
+ * Type of the confirm event.
+ */
 export enum ConfirmEventType {
-    ACCEPT, 
-    REJECT, 
+    ACCEPT,
+    REJECT,
     CANCEL
 }

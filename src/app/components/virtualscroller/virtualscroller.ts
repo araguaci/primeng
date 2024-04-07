@@ -1,29 +1,49 @@
-import {NgModule,Component,ElementRef,AfterContentInit,Input,Output,ViewChild,EventEmitter,ContentChild,ContentChildren,QueryList,TemplateRef,ChangeDetectionStrategy, ViewEncapsulation} from '@angular/core';
-import {CommonModule} from '@angular/common';
-import {Header,Footer,PrimeTemplate,SharedModule} from 'primeng/api';
-import {ScrollingModule,CdkVirtualScrollViewport} from '@angular/cdk/scrolling';
-import {BlockableUI} from 'primeng/api';
-
+import { CommonModule } from '@angular/common';
+import {
+    AfterContentInit,
+    ChangeDetectionStrategy,
+    ChangeDetectorRef,
+    Component,
+    ContentChild,
+    ContentChildren,
+    ElementRef,
+    EventEmitter,
+    Input,
+    NgModule,
+    Output,
+    QueryList,
+    TemplateRef,
+    ViewChild,
+    ViewEncapsulation,
+    booleanAttribute,
+    numberAttribute
+} from '@angular/core';
+import { BlockableUI, Footer, Header, PrimeTemplate, ScrollerOptions, SharedModule } from 'primeng/api';
+import { Scroller, ScrollerModule } from 'primeng/scroller';
+import { Nullable } from 'primeng/ts-helpers';
+import { VirtualScrollerLazyLoadEvent } from './virtualscroller.interface';
+/**
+ * VirtualScroller is a performant approach to handle huge data efficiently.
+ * @group Components
+ */
 @Component({
     selector: 'p-virtualScroller',
-    template:`
-        <div [ngClass]="'p-virtualscroller p-component'" [ngStyle]="style" [class]="styleClass">
+    template: `
+        <div [ngClass]="'p-virtualscroller p-component'" [ngStyle]="style" [class]="styleClass" [attr.data-pc-name]="'virtualscroller'" [attr.data-pc-section]="'root'">
             <div class="p-virtualscroller-header" *ngIf="header || headerTemplate">
                 <ng-content select="p-header"></ng-content>
                 <ng-container *ngTemplateOutlet="headerTemplate"></ng-container>
             </div>
-            <div #content class="p-virtualscroller-content">
-                <div class="p-virtualscroller-list">
-                    <cdk-virtual-scroll-viewport #viewport [ngStyle]="{'height': scrollHeight}" tabindex="0" [itemSize]="itemSize" [minBufferPx]="minBufferPx" [maxBufferPx]="maxBufferPx" (scrolledIndexChange)="onScrollIndexChange($event)">
-                        <ng-container *cdkVirtualFor="let item of value; trackBy: trackBy; let i = index; let c = count; let f = first; let l = last; let e = even; let o = odd;">
-                            <div [ngStyle]="{'height': itemSize + 'px'}" class="p-virtualscroller-item">
-                                <ng-container *ngTemplateOutlet="item ? itemTemplate : loadingItemTemplate; context: {$implicit: item, index: i, count: c, first: f, last: l, even: e, odd: o}"></ng-container>
-                            </div>
-                        </ng-container>
-                    </cdk-virtual-scroll-viewport>
-                </div>
+            <div #content class="p-virtualscroller-content" [attr.data-pc-section]="'content'">
+                <p-scroller #scroller [items]="value" styleClass="p-virtualscroller-list" [style]="{ height: scrollHeight }" [itemSize]="itemSize" [lazy]="lazy" (onLazyLoad)="onLazyItemLoad($event)" [options]="options">
+                    <ng-template pTemplate="item" let-item let-scrollerOptions="options">
+                        <div [ngStyle]="{ height: itemSize + 'px' }" class="p-virtualscroller-item">
+                            <ng-container *ngTemplateOutlet="item ? itemTemplate : loadingItemTemplate; context: { $implicit: item, options: scrollerOptions }"></ng-container>
+                        </div>
+                    </ng-template>
+                </p-scroller>
             </div>
-            <div class="p-virtualscroller-footer" *ngIf="footer || footerTemplate">
+            <div class="p-virtualscroller-footer" *ngIf="footer || footerTemplate" [attr.data-pc-section]="'footer'">
                 <ng-content select="p-footer"></ng-content>
                 <ng-container *ngTemplateOutlet="footerTemplate"></ng-container>
             </div>
@@ -31,153 +51,130 @@ import {BlockableUI} from 'primeng/api';
     `,
     changeDetection: ChangeDetectionStrategy.Default,
     encapsulation: ViewEncapsulation.None,
-    styleUrls: ['./virtualscroller.css']
+    host: {
+        class: 'p-element'
+    }
 })
-export class VirtualScroller implements AfterContentInit,BlockableUI {
-
-    @Input() value: any[];
-
-    @Input() itemSize: number; 
-
-    @Input() style: any;
-
-    @Input() styleClass: string;
-    
+export class VirtualScroller implements AfterContentInit, BlockableUI {
+    /**
+     * An array of objects to display.
+     * @group Props
+     */
+    @Input() value: any[] | undefined;
+    /**
+     * Height of an item in the list.
+     * @group Props
+     */
+    @Input({ transform: numberAttribute }) itemSize: number | undefined;
+    /**
+     * Inline style of the component.
+     * @group Props
+     */
+    @Input() style: { [klass: string]: any } | null | undefined;
+    /**
+     * Style class of the component.
+     * @group Props
+     */
+    @Input() styleClass: string | undefined;
+    /**
+     * Max height of the content area in inline mode.
+     * @group Props
+     */
     @Input() scrollHeight: any;
+    /**
+     * Defines if data is loaded and interacted with in lazy manner.
+     * @group Props
+     */
+    @Input({ transform: booleanAttribute }) lazy: boolean | undefined;
+    /**
+     * Whether to use the scroller feature. The properties of scroller component can be used like an object in it.
+     * @group Props
+     */
+    @Input() options: ScrollerOptions | undefined;
+    /**
+     * Threshold in milliseconds to delay lazy loading during scrolling.
+     * @group Props
+     */
+    @Input({ transform: numberAttribute }) delay: number = 250;
+    /**
+     * Callback to invoke in lazy mode to load new data.
+     * @param {VirtualScrollerLazyLoadEvent} event - custom lazy load event.
+     * @group Emits
+     */
+    @Output() onLazyLoad: EventEmitter<VirtualScrollerLazyLoadEvent> = new EventEmitter<VirtualScrollerLazyLoadEvent>();
 
-    @Input() lazy: boolean;
+    @ContentChild(Header) header: Header | undefined;
 
-    @Input() rows: number;
+    @ContentChild(Footer) footer: Footer | undefined;
 
-    @Input() minBufferPx: number;
+    @ContentChildren(PrimeTemplate) templates: Nullable<QueryList<PrimeTemplate>>;
 
-    @Input() maxBufferPx: number;
+    @ViewChild('scroller') scroller: Nullable<Scroller>;
 
-    @Input() delay: number = 250;
-  
-    @Input() trackBy: Function = (index: number, item: any) => item;
-                
-    @ContentChild(Header) header: Header;
+    itemTemplate: Nullable<TemplateRef<any>>;
 
-    @ContentChild(Footer) footer: Footer;
-    
-    @ContentChildren(PrimeTemplate) templates: QueryList<any>;
+    headerTemplate: Nullable<TemplateRef<any>>;
 
-    @ViewChild(CdkVirtualScrollViewport) viewport: CdkVirtualScrollViewport;
+    footerTemplate: Nullable<TemplateRef<any>>;
 
-    @Output() onLazyLoad: EventEmitter<any> = new EventEmitter();
-
-    itemTemplate: TemplateRef<any>;
-
-    headerTemplate: TemplateRef<any>;
-
-    footerTemplate: TemplateRef<any>;
-
-    loadingItemTemplate: TemplateRef<any>;
-
-    _totalRecords: number = 0;
-
-    page: number = 0;
-
-    _first: number = 0;
-
-    _cache: boolean;
+    loadingItemTemplate: Nullable<TemplateRef<any>>;
 
     virtualScrollTimeout: any;
 
-    virtualPage: number;
-
-    constructor(public el: ElementRef) {}
-
-    @Input() get totalRecords(): number {
-        return this._totalRecords;
-    }
-    set totalRecords(val: number) {
-        this._totalRecords = val;
-        console.log("totalRecords is deprecated, provide a value with the length of virtual items instead.");
-    }
-
-    @Input() get first(): number {
-        return this._first;
-    }
-    set first(val:number) {
-        this._first = val;
-        console.log("first property is deprecated, use scrollToIndex function to scroll a specific item.");
-    }
-
-    @Input() get cache(): boolean {
-        return this._cache;
-    }
-    set cache(val: boolean) {
-        this._cache = val;
-        console.log("cache is deprecated as it is always on.");
-    }
+    constructor(public el: ElementRef, public cd: ChangeDetectorRef) {}
 
     ngAfterContentInit() {
-        this.templates.forEach((item) => {
-            switch(item.getType()) {
+        (this.templates as QueryList<PrimeTemplate>).forEach((item) => {
+            switch (item.getType()) {
                 case 'item':
                     this.itemTemplate = item.template;
-                break;
+                    break;
 
                 case 'loadingItem':
                     this.loadingItemTemplate = item.template;
-                break;
+                    break;
 
                 case 'header':
                     this.headerTemplate = item.template;
-                break;
+                    break;
 
                 case 'footer':
                     this.footerTemplate = item.template;
-                break;
-                
+                    break;
+
                 default:
                     this.itemTemplate = item.template;
-                break;
+                    break;
             }
         });
     }
 
-    onScrollIndexChange(index: number) {
-        if (this.lazy) {
-            if (this.virtualScrollTimeout) {
-                clearTimeout(this.virtualScrollTimeout);
-            }
-
-            this.virtualScrollTimeout = setTimeout(() => {
-                let page = Math.floor(index / this.rows);
-                let virtualScrollOffset = page === 0 ? 0 : (page - 1) * this.rows;
-                let virtualScrollChunkSize = page === 0 ? this.rows * 2 : this.rows * 3;
-  
-                if (page !== this.virtualPage) {
-                    this.virtualPage = page;
-                    this.onLazyLoad.emit({first: virtualScrollOffset, rows: virtualScrollChunkSize});
-                }
-            }, this.delay);
+    onLazyItemLoad(event: VirtualScrollerLazyLoadEvent) {
+        if (this.virtualScrollTimeout) {
+            clearTimeout(this.virtualScrollTimeout);
         }
+
+        this.virtualScrollTimeout = setTimeout(() => {
+            this.onLazyLoad.emit({
+                ...event,
+                rows: <number>event.last - <number>event.first,
+                forceUpdate: () => this.cd.detectChanges()
+            });
+        }, this.delay);
     }
 
-    getBlockableElement(): HTMLElement {
+    getBlockableElement(): HTMLElement {
         return this.el.nativeElement.children[0];
     }
 
-    //@deprecated
-    scrollTo(index: number, mode?: ScrollBehavior): void {
-        this.scrollToIndex(index, mode);
-    }
-
     scrollToIndex(index: number, mode?: ScrollBehavior): void {
-        if (this.viewport) {
-            this.viewport.scrollToIndex(index, mode);
-        }
+        this.scroller?.scrollToIndex(index, mode);
     }
 }
 
 @NgModule({
-    imports: [CommonModule,ScrollingModule],
-    exports: [VirtualScroller,SharedModule,ScrollingModule],
+    imports: [CommonModule, SharedModule, ScrollerModule],
+    exports: [VirtualScroller, SharedModule, ScrollerModule],
     declarations: [VirtualScroller]
 })
-export class VirtualScrollerModule { }
-
+export class VirtualScrollerModule {}

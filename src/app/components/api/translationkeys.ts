@@ -25,15 +25,26 @@ export class TranslationKeys {
     public static readonly CHOOSE = 'choose';
     public static readonly UPLOAD = 'upload';
     public static readonly CANCEL = 'cancel';
+    public static readonly PENDING = 'pending';
+    public static readonly FILE_SIZE_TYPES = 'fileSizeTypes';
     public static readonly DAY_NAMES = 'dayNames';
     public static readonly DAY_NAMES_SHORT = 'dayNamesShort';
     public static readonly DAY_NAMES_MIN = 'dayNamesMin';
     public static readonly MONTH_NAMES = 'monthNames';
     public static readonly MONTH_NAMES_SHORT = 'monthNamesShort';
+    public static readonly FIRST_DAY_OF_WEEK = 'firstDayOfWeek';
     public static readonly TODAY = 'today';
     public static readonly WEEK_HEADER = 'weekHeader';
     public static readonly WEAK = 'weak';
     public static readonly MEDIUM = 'medium';
     public static readonly STRONG = 'strong';
     public static readonly PASSWORD_PROMPT = 'passwordPrompt';
+    public static readonly EMPTY_MESSAGE = 'emptyMessage';
+    public static readonly EMPTY_FILTER_MESSAGE = 'emptyFilterMessage';
+    public static readonly SHOW_FILTER_MENU = 'showFilterMenu';
+    public static readonly HIDE_FILTER_MENU = 'hideFilterMenu';
+    public static readonly SELECTION_MESSAGE = 'selectionMessage';
+    public static readonly ARIA = 'aria';
+    public static readonly SELECT_COLOR = 'selectColor';
+    public static readonly BROWSE_FILES = 'browseFiles';
 }

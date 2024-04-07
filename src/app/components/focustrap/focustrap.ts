@@ -1,42 +1,35 @@
-import {NgModule,Directive,ElementRef,HostListener, Input} from '@angular/core';
-import {CommonModule} from '@angular/common';
-import {DomHandler} from 'primeng/dom';
+import { DomHandler } from 'primeng/dom';
 
+import { CommonModule } from '@angular/common';
+import { Directive, ElementRef, HostListener, Input, NgModule, inject, booleanAttribute } from '@angular/core';
+/**
+ * Focus Trap keeps focus within a certain DOM element while tabbing.
+ * @group Components
+ */
 @Directive({
     selector: '[pFocusTrap]',
+    host: {
+        class: 'p-element'
+    }
 })
 export class FocusTrap {
+    /**
+     * When set as true, focus wouldn't be managed.
+     * @group Props
+     */
+    @Input({ transform: booleanAttribute }) pFocusTrapDisabled: boolean = false;
 
-    @Input() pFocusTrapDisabled: boolean;
-
-    constructor(public el: ElementRef) {}
+    host: ElementRef = inject(ElementRef);
 
     @HostListener('keydown.tab', ['$event'])
     @HostListener('keydown.shift.tab', ['$event'])
-    onkeydown(e) {
+    onkeydown(e: KeyboardEvent) {
         if (this.pFocusTrapDisabled !== true) {
             e.preventDefault();
-            let focusableElements = DomHandler.getFocusableElements(this.el.nativeElement);
-            if (focusableElements && focusableElements.length > 0) {
-                if (!focusableElements[0].ownerDocument.activeElement) {
-                    focusableElements[0].focus();
-                }
-                else {
-                    let focusedIndex = focusableElements.indexOf(focusableElements[0].ownerDocument.activeElement);
-
-                    if (e.shiftKey) {
-                        if (focusedIndex == -1 || focusedIndex === 0)
-                            focusableElements[focusableElements.length - 1].focus();
-                        else
-                            focusableElements[focusedIndex - 1].focus();
-                    }
-                    else {
-                        if (focusedIndex == -1 || focusedIndex === (focusableElements.length - 1))
-                            focusableElements[0].focus();
-                        else
-                            focusableElements[focusedIndex + 1].focus();
-                    }
-                }
+            const focusableElement = DomHandler.getNextFocusableElement(this.host.nativeElement, e.shiftKey);
+            if (focusableElement) {
+                focusableElement.focus();
+                focusableElement.select?.();
             }
         }
     }
@@ -47,4 +40,4 @@ export class FocusTrap {
     exports: [FocusTrap],
     declarations: [FocusTrap]
 })
-export class FocusTrapModule { }
+export class FocusTrapModule {}
